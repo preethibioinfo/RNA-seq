@@ -3,7 +3,7 @@
 This repository contains RNA-seq analysis pipelines and scripts used for differential gene expression studies.
 
 ## Project Description
-This project focuses on transcriptomic analysis using DESeq2 to compare gene expression between different biological conditions.
+This project performs transcriptomic profiling using DESeq2 to identify differentially expressed genes between biological conditions. The workflow includes normalization, statistical testing with multiple testing correction, dimensionality reduction (PCA), and functional enrichment analysis (GO & KEGG).
 
 ## Tools Used
 - R
