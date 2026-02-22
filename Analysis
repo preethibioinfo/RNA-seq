@@ -1,6 +1,9 @@
 scripts/DESeq2_analysis.R
 scripts/PCA_plot.R
 scripts/Volcano_plot.R
+scripts/GO_enrichment.R
+scripts/KEGG_enrichment.R
+scripts/Heatmap_top50.R
 
 # ============================================================
 # RNA-seq Differential Expression Analysis using DESeq2
