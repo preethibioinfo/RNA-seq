@@ -1,0 +1,250 @@
+scripts/DESeq2_analysis.R
+scripts/PCA_plot.R
+scripts/Volcano_plot.R
+
+# ============================================================
+# RNA-seq Differential Expression Analysis using DESeq2
+# Author: D. Preethi
+# Description: BAT vs WAT transcriptomic comparison
+# ============================================================
+
+# Load libraries
+library(DESeq2)
+library(readxl)
+library(tidyverse)
+
+# -----------------------------
+# 1. Load Data
+# -----------------------------
+
+# Replace with your actual file names
+counts <- read_excel("data/counts.xlsx")
+metadata <- read_excel("data/metadata.xlsx")
+
+# Convert to dataframe
+counts <- as.data.frame(counts)
+metadata <- as.data.frame(metadata)
+
+# Set gene names as rownames
+rownames(counts) <- counts$Gene
+counts <- counts[, -1]
+
+# Ensure column order matches metadata
+counts <- counts[, metadata$Sample]
+
+# -----------------------------
+# 2. Create DESeq2 Object
+# -----------------------------
+
+dds <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData = metadata,
+  design = ~ Condition
+)
+
+# Remove low count genes
+dds <- dds[rowSums(counts(dds)) > 10, ]
+
+# -----------------------------
+# 3. Run DESeq2
+# -----------------------------
+
+dds <- DESeq(dds)
+
+res <- results(dds, contrast = c("Condition", "BAT", "WAT"))
+
+# Order by adjusted p-value
+res <- res[order(res$padj), ]
+
+# Save results
+write.csv(as.data.frame(res), "results/DESeq2_results.csv")
+
+
+
+# ============================================================
+# PCA Plot for RNA-seq Data (VST Normalization)
+# ============================================================
+
+library(DESeq2)
+library(ggplot2)
+
+# Load DESeq object from previous analysis
+load("dds_object.RData")  # Optional if saved earlier
+
+# Variance Stabilizing Transformation
+vsd <- vst(dds, blind = FALSE)
+
+# PCA Plot
+pcaData <- plotPCA(vsd, intgroup = "Condition", returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+ggplot(pcaData, aes(PC1, PC2, color = Condition)) +
+  geom_point(size = 4) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_minimal()
+
+# Save plot
+ggsave("results/PCA_plot.png")
+
+save dds object in previous script:
+save(dds, file = "dds_object.RData")
+
+# ============================================================
+# Volcano Plot for Differential Expression
+# ============================================================
+
+library(ggplot2)
+
+# Load DESeq results
+res <- read.csv("results/DESeq2_results.csv")
+
+# Remove NA values
+res <- na.omit(res)
+
+# Add significance column
+res$Significant <- "Not Significant"
+res$Significant[res$padj < 0.05 & res$log2FoldChange > 1] <- "Upregulated"
+res$Significant[res$padj < 0.05 & res$log2FoldChange < -1] <- "Downregulated"
+
+# Volcano Plot
+ggplot(res, aes(x = log2FoldChange, y = -log10(padj), color = Significant)) +
+  geom_point(alpha = 0.6) +
+  theme_minimal() +
+  xlab("Log2 Fold Change") +
+  ylab("-Log10 Adjusted P-value") +
+  scale_color_manual(values = c("blue", "grey", "red"))
+
+# Save plot
+ggsave("results/Volcano_plot.png")
+
+# ============================================================
+# GO Enrichment Analysis (Biological Process)
+# Author: D. Preethi
+# ============================================================
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(readr)
+library(dplyr)
+
+# -----------------------------
+# Load DESeq2 results
+# -----------------------------
+res <- read_csv("results/DESeq2_results.csv")
+
+# Clear statistical thresholds
+padj_cutoff <- 0.05
+log2fc_cutoff <- 1
+
+sig_genes <- res %>%
+  filter(padj < padj_cutoff & abs(log2FoldChange) > log2fc_cutoff)
+
+gene_symbols <- sig_genes$gene
+
+# Convert gene symbols to Entrez IDs
+entrez_ids <- bitr(gene_symbols,
+                   fromType = "SYMBOL",
+                   toType = "ENTREZID",
+                   OrgDb = org.Hs.eg.db)
+
+# GO enrichment (Biological Process)
+ego <- enrichGO(
+  gene = entrez_ids$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Save results
+write.csv(as.data.frame(ego),
+          "results/GO_enrichment_results.csv")
+
+# Plot
+png("figures/GO_dotplot.png", width = 1000, height = 800)
+dotplot(ego, showCategory = 20)
+dev.off()
+
+# ============================================================
+# KEGG Pathway Enrichment Analysis
+# ============================================================
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(readr)
+library(dplyr)
+
+# Load DESeq2 results
+res <- read_csv("results/DESeq2_results.csv")
+
+padj_cutoff <- 0.05
+log2fc_cutoff <- 1
+
+sig_genes <- res %>%
+  filter(padj < padj_cutoff & abs(log2FoldChange) > log2fc_cutoff)
+
+gene_symbols <- sig_genes$gene
+
+# Convert to Entrez IDs
+entrez_ids <- bitr(gene_symbols,
+                   fromType = "SYMBOL",
+                   toType = "ENTREZID",
+                   OrgDb = org.Hs.eg.db)
+
+# KEGG enrichment
+ekegg <- enrichKEGG(
+  gene = entrez_ids$ENTREZID,
+  organism = "hsa",
+  pvalueCutoff = 0.05
+)
+
+# Save results
+write.csv(as.data.frame(ekegg),
+          "results/KEGG_enrichment_results.csv")
+
+# Plot
+png("figures/KEGG_dotplot.png", width = 1000, height = 800)
+dotplot(ekegg, showCategory = 20)
+dev.off()
+
+# ============================================================
+# Heatmap of Top 50 Differentially Expressed Genes
+# ============================================================
+
+library(DESeq2)
+library(pheatmap)
+library(readr)
+library(dplyr)
+
+# Load DESeq object
+load("dds_object.RData")
+
+# Get normalized counts
+vsd <- vst(dds, blind = FALSE)
+norm_counts <- assay(vsd)
+
+# Load DE results
+res <- read_csv("results/DESeq2_results.csv")
+
+# Sort by adjusted p-value
+res_ordered <- res %>%
+  arrange(padj)
+
+top50_genes <- res_ordered$gene[1:50]
+
+heatmap_data <- norm_counts[top50_genes, ]
+
+# Scale by row
+heatmap_data_scaled <- t(scale(t(heatmap_data)))
+
+# Plot heatmap
+png("figures/Heatmap_top50.png", width = 1000, height = 1000)
+pheatmap(heatmap_data_scaled,
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         clustering_distance_rows = "euclidean",
+         clustering_distance_cols = "euclidean",
+         clustering_method = "complete")
+dev.off()
