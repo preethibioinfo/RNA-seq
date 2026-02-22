@@ -1,0 +1,60 @@
+# ============================================================
+# Generate Simulated RNA-seq Count Data (Demo Purpose Only)
+# Author: D. Preethi
+# ============================================================
+
+set.seed(123)
+
+# -----------------------------
+# Parameters
+# -----------------------------
+n_genes <- 1000
+n_samples <- 6
+
+# Create gene names
+genes <- paste0("Gene_", 1:n_genes)
+
+# Create sample names
+samples <- c("BAT_1", "BAT_2", "BAT_3",
+             "WAT_1", "WAT_2", "WAT_3")
+
+# -----------------------------
+# Simulate count data
+# -----------------------------
+
+# Base expression
+base_expression <- matrix(
+  rnbinom(n_genes * n_samples, mu = 100, size = 1),
+  nrow = n_genes
+)
+
+# Introduce differential expression for first 50 genes
+base_expression[1:50, 1:3] <- base_expression[1:50, 1:3] + 100
+
+# Convert to dataframe
+counts <- as.data.frame(base_expression)
+colnames(counts) <- samples
+counts$Gene <- genes
+
+# Reorder columns (Gene first)
+counts <- counts[, c("Gene", samples)]
+
+# -----------------------------
+# Create metadata
+# -----------------------------
+
+metadata <- data.frame(
+  Sample = samples,
+  Condition = rep(c("BAT", "WAT"), each = 3)
+)
+
+# -----------------------------
+# Save files in data/ folder
+# -----------------------------
+
+dir.create("data", showWarnings = FALSE)
+
+write.csv(counts, "data/counts_demo.csv", row.names = FALSE)
+write.csv(metadata, "data/metadata_demo.csv", row.names = FALSE)
+
+cat("Demo count matrix and metadata generated successfully!\n")
