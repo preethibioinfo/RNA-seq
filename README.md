@@ -13,9 +13,9 @@ This project focuses on transcriptomic analysis using DESeq2 to compare gene exp
 - GO & KEGG enrichment
 
 ## Author
-D. Preethi
-MSc Biochemistry
-Stem Cell Biology Laboratory
+D. Preethi  
+M.Sc. Biochemistry  
+Stem Cell Biology Laboratory  
 
 
 ## Workflow
