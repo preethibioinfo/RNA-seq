@@ -52,9 +52,6 @@ RNA-seq/
 │   ├── 04_GO_enrichment.R
 │   ├── 05_KEGG_enrichment.R
 │   ├── 06_Heatmap_top50.R
-├── results/
-├── figures/
-└── sessionInfo.txt
 
 Note: Example output files are generated from demonstration data for workflow illustration purposes.
 
